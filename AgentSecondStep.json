@@ -1,0 +1,164 @@
+{
+  "name": "AgentSecondStep",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "seleccion-horario",
+        "options": {
+          "responseData": "'Reserva confirmada! Ya puedes cerrar esta ventana.'"
+        }
+      },
+      "id": "efe16c38-8991-4945-bb5c-cdc666723f93",
+      "name": "Webhook Selección",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        0
+      ],
+      "webhookId": "f9219fbb-6be7-4478-9891-066f492cae74"
+    },
+    {
+      "parameters": {
+        "calendar": "primary",
+        "start": "={{$json.query.fecha}}",
+        "end": "={{ new Date(new Date($json.query.fecha).getTime() + 45 * 60000).toISOString() }}",
+        "additionalFields": {
+          "attendees": [
+            "={{ $json.query.nombre }} <{{ $json.query.email.trim() }}>"
+          ],
+          "color": "5",
+          "summary": "=Sesión: {{ $json.query.nombre }}"
+        }
+      },
+      "id": "b1a84df9-aebc-47cd-a7b1-8b1b0ca19e4c",
+      "name": "Crear Cita Provisional",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        144,
+        0
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "Qm082Rxs35dspb00",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $node[\"Webhook Selección\"].json.query.fecha ? new Date(new Date($node[\"Webhook Selección\"].json.query.fecha).getTime() - 86400000).toISOString() : $now.toISOString() }}"
+      },
+      "id": "14a945e5-8c9c-4b31-90c4-4487bcb28975",
+      "name": "Wait 24h Antes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ],
+      "webhookId": "d4b2bba4-ccd4-4a46-9126-f39aa28f6885"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.attendees[0].email }}",
+        "subject": "=Confirmación de tu cita -  {{ $json.query.nombre }}",
+        "message": "=<p>¡Hola <b>{{ $json.query.nombre }}</b>!</p>\n<p>Tu sesión ha quedado reservada correctamente:</p>\n<ul>\n  <li><b>Fecha:</b> {{ new Date($json.query.fecha).toLocaleDateString('es-ES') }}</li>\n  <li><b>Hora:</b> {{ new Date($json.query.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) }}</li>\n</ul>\n<p>Ya la tienes anotada en mi agenda. ¡Nos vemos pronto!</p>",
+        "options": {}
+      },
+      "id": "d873f1ee-f683-43a1-af06-75207c817419",
+      "name": "Mail Recordatorio",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        640,
+        0
+      ],
+      "webhookId": "7c330a1c-4774-4073-8e57-6932070d1375",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TWPomNKuGhKONfTk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8076467235",
+        "text": "={{ \"🏋️‍♂️ *¡NUEVA RESERVA CONFIRMADA!* \\n\\n\" + \n   \"👤 *Cliente:* \" + $json.query.nombre + \"\\n\" +\n   \"📅 *Cita:* \" + new Date($json.query.fecha).toLocaleString('es-ES', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + \"\\n\" +\n   \"📧 *Email:* \" + $json.query.email + \"\\n\\n\" +\n   \"✅ El calendario ya está actualizado.\" }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        144
+      ],
+      "id": "ea0d2ac3-816f-4b37-af72-5e7bec57414d",
+      "name": "Notificar al profesional",
+      "webhookId": "e0526749-9111-475d-8fb5-890e68c26a31",
+      "credentials": {
+        "telegramApi": {
+          "id": "aBRJtzcqVc9zzu92",
+          "name": "Telegram account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Selección": {
+      "main": [
+        [
+          {
+            "node": "Crear Cita Provisional",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notificar al profesional",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Cita Provisional": {
+      "main": [
+        [
+          {
+            "node": "Wait 24h Antes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 24h Antes": {
+      "main": [
+        [
+          {
+            "node": "Mail Recordatorio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "54f1f832-30b2-486e-9477-af9fba80dd30",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "725588a2e8e026408b79868db1662540f168dd425a75b410a8221b46e5b4994c"
+  },
+  "id": "KZ55arg8PwSSODvPx67yS",
+  "tags": []
+}
